@@ -5,20 +5,23 @@ import lombok.Getter;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import org.simpleyaml.configuration.file.YamlFile;
+import org.simpleyaml.exceptions.InvalidConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 
 @Getter
 public class Config {
 
     @Getter(AccessLevel.NONE)
-    public static final Config INS = new Config();
+    private static final Logger LOGGER = LoggerFactory.getLogger(Config.class);
 
     @Getter(AccessLevel.NONE)
-    private static final Logger LOGGER = LoggerFactory.getLogger(Config.class);
+    public static final Config INS = new Config();
+
     private static final String file = "config.yml";
 
     private YamlFile config;
@@ -46,6 +49,18 @@ public class Config {
             System.exit(1);
         }
 
+        if (!this.config.exists()) {
+            LOGGER.error("Could not load config, the file '{}' doesn't exist!", file);
+            System.exit(1);
+        }
+
+        try {
+            this.config.load();
+        } catch (InvalidConfigurationException | IOException e) {
+            LOGGER.error("Couldn't load config!", e);
+            System.exit(1);
+        }
+
         this.token = this.config.getString("discord.token");
         if (this.token == null || this.token.isBlank()) {
             LOGGER.error("Invalid Discord token! Exiting.");
@@ -53,8 +68,9 @@ public class Config {
         }
 
         String status = this.config.getString("discord.status", "ONLINE");
-        this.status = OnlineStatus.fromKey(status);
-        if (this.status == OnlineStatus.UNKNOWN) {
+        try {
+            this.status = OnlineStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
             LOGGER.warn("Unknown status '{}' supplied, expected one of: {}. Status set to '{}'", status, Arrays.toString(OnlineStatus.values()), OnlineStatus.ONLINE);
             this.status = OnlineStatus.ONLINE;
         }
